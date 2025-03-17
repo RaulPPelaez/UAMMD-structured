@@ -11,9 +11,6 @@ project(UAMMDstructured LANGUAGES CXX CUDA)
 
 set(CMAKE_BUILD_TYPE Release CACHE STRING "Choose the type of build." FORCE)
 
-# By default, install is done at ~/bin
-set(INSTALL_DIR "$ENV{HOME}/bin" CACHE PATH "Installation directory")
-
 # Add option for Python package installation
 option(INSTALL_PYTHON_PACKAGE "Install Python package during make install" OFF)
 
@@ -38,35 +35,25 @@ if(BUILD_DEB_PACKAGE AND (BUILD_PYTHON_WRAPPER OR INSTALL_PYTHON_PACKAGE))
                         "Please disable BUILD_PYTHON_WRAPPER and INSTALL_PYTHON_PACKAGE to build the .deb package.")
 endif()
 
-set(UAMMD_REPO_URL "https://github.com/PabloIbannez/UAMMD.git")
-set(UAMMD_TAG "v2.x")
+set(UAMMD_REPO_URL "https://github.com/RaulPPelaez/UAMMD.git")
+set(UAMMD_TAG "pablo")
 
 ###############################################################
 # Download UAMMD
-include(ExternalProject)
-
-ExternalProject_Add(
-    UAMMD
-    GIT_REPOSITORY ${UAMMD_REPO_URL}
-    GIT_TAG ${UAMMD_TAG}
-    PREFIX ${CMAKE_BINARY_DIR}/external
-    UPDATE_DISCONNECTED 1
-    CONFIGURE_COMMAND ""
-    BUILD_COMMAND ""
-    INSTALL_COMMAND ""
-    LOG_DOWNLOAD ON
-    LOG_CONFIGURE ON
-    LOG_BUILD ON
-    LOG_INSTALL ON
-    GIT_SHALLOW 1
+set(UAMMD_STRUCTURED_PATH "${CMAKE_BINARY_DIR}/UAMMDstructured")
+include(FetchContent)
+FetchContent_Declare(
+  uammd
+  GIT_REPOSITORY https://github.com/RaulPPelaez/uammd/
+  GIT_TAG        pablo
+  # Put it in UAMMDstructured/uammd
+  SOURCE_DIR ${UAMMD_STRUCTURED_PATH}/uammd
+  UPDATE_DISCONNECTED 1
 )
-
+FetchContent_MakeAvailable(uammd)
 ###############################################################
 # Create UAMMDstructured folder
-
-set(UAMMD_STRUCTURED_PATH "${CMAKE_BINARY_DIR}/UAMMDstructured")
-file(MAKE_DIRECTORY ${UAMMD_STRUCTURED_PATH})
-file(MAKE_DIRECTORY ${UAMMD_STRUCTURED_PATH}/uammd)
+#file(MAKE_DIRECTORY ${UAMMD_STRUCTURED_PATH})
 file(MAKE_DIRECTORY ${UAMMD_STRUCTURED_PATH}/extensions)
 
 set(UAMMD_COMPONENTS_PATH "${CMAKE_CURRENT_SOURCE_DIR}/structured/Components.json")
@@ -74,27 +61,12 @@ set(UAMMD_DATA_PATH "${CMAKE_CURRENT_SOURCE_DIR}/structured/Data.json")
 set(UAMMD_COMPUTABLES_PATH "${CMAKE_CURRENT_SOURCE_DIR}/structured/Computables.json")
 ###############################################################
 # Copy structured/ folder to UAMMDstructured/
-
 file(CREATE_LINK ${CMAKE_CURRENT_SOURCE_DIR}/structured ${UAMMD_STRUCTURED_PATH}/extensions/structured SYMBOLIC)
+include_directories(${UAMMD_STRUCTURED_PATH}/extensions/structured/include)
+include_directories(${UAMMD_STRUCTURED_PATH}/extensions/structured/src)
+# Copy ${UAMMD_STRUCTURED_PATH}/extensions/structured/preamble.h to uammd/extensions/preamble.h
+file(COPY ${UAMMD_STRUCTURED_PATH}/extensions/structured/preamble.h DESTINATION ${UAMMD_STRUCTURED_PATH}/uammd/extensions/)
 
-###############################################################
-# Copy external/src/UAMMD/src/ to UAMMDstructured/src
-# (done at build time)
-# If UAMMDstructured/uammd/uammd.cuh is not found, copy the UAMMD source files to UAMMDstructured/uammd
-add_custom_command(
-    OUTPUT ${UAMMD_STRUCTURED_PATH}/uammd/uammd.cuh
-    COMMAND ${CMAKE_COMMAND} -E copy_directory
-    ${CMAKE_BINARY_DIR}/external/src/UAMMD/src ${UAMMD_STRUCTURED_PATH}/uammd
-    DEPENDS UAMMD
-)
-
-add_custom_target(
-    CopyUAMMD ALL
-    DEPENDS ${UAMMD_STRUCTURED_PATH}/uammd/uammd.cuh
-)
-
-add_dependencies(CopyUAMMD UAMMD)
-################################################################
 # Set the precision of UAMMD, SINGLE or DOUBLE
 set(UAMMD_PRECISION "SINGLE" CACHE STRING "Choose the precision of UAMMD, SINGLE or DOUBLE")
 
@@ -121,34 +93,16 @@ endif()
 
 ################################################################
 # Packages
-
-# Check if MKLROOT is defined
-if(DEFINED ENV{MKLROOT})
-  message(STATUS "Detected MKLROOT: $ENV{MKLROOT}")
-  set(BLA_VENDOR Intel10_64lp_seq)
-  set(USE_MKL 1)
-else()
-  message(STATUS "MKLROOT not found. Using OpenBLAS.")
-endif()
-
-# Find BLAS and LAPACK
 find_package(BLAS REQUIRED)
-find_package(LAPACK REQUIRED)
 
-message(STATUS "BLAS libraries: ${BLAS_LIBRARIES}")
-message(STATUS "LAPACK libraries: ${LAPACK_LIBRARIES}")
-
-# Link libraries
-set(LIBRARIES cufft cublas curand cusolver cusparse stdc++fs ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES})
+set(LIBRARIES stdc++fs)
 
 if(INSTALL_PYTHON_PACKAGE)
     find_package(Python COMPONENTS Interpreter REQUIRED)
 endif()
 
 if(BUILD_PYTHON_WRAPPER)
-    # Find Python
     find_package(Python COMPONENTS Interpreter Development REQUIRED)
-    # Find pybind11
     find_package(pybind11 REQUIRED)
 endif()
 
@@ -273,6 +227,8 @@ add_custom_target(
 ################################################################
 set(UAMMD_STRUCTURED_SRC_PATH "${UAMMD_STRUCTURED_PATH}/extensions/structured/src")
 # Add backbone files to STRUCTURED_BACKBONE_FILES
+# USe glob to find any .cu or .cpp file in the hierarchy
+#file(GLOB_RECURSE STRUCTURED_BACKBONE_FILES ${UAMMD_STRUCTURED_SRC_PATH} "*.cu")
 
 list(APPEND STRUCTURED_BACKBONE_FILES "${UAMMD_STRUCTURED_SRC_PATH}/Input/Input.cu")
 list(APPEND STRUCTURED_BACKBONE_FILES "${UAMMD_STRUCTURED_SRC_PATH}/Input/InputEntryManager.cu")
@@ -361,7 +317,6 @@ function(parse_json_array current_path array)
           set(file_path "${base_path}${current_path}/${component_type}/${component_file}")
           list(APPEND STRUCTURED_COMPONENTS ${file_path})
           set(STRUCTURED_COMPONENTS ${STRUCTURED_COMPONENTS} PARENT_SCOPE)
-          # message(STATUS "Added component ${component_name} at src${current_path}/${component_type}/${component_file}")
         else()
           message(FATAL_ERROR "Error parsing JSON: ${value} is not a valid file")
         endif()
@@ -371,71 +326,44 @@ function(parse_json_array current_path array)
   set(STRUCTURED_COMPONENTS ${STRUCTURED_COMPONENTS} PARENT_SCOPE)
 endfunction()
 
-# Use the function to populate STRUCTURED_COMPONENTS
 parse_json_and_add_files(${UAMMD_COMPONENTS_PATH} ${UAMMD_STRUCTURED_PATH}/extensions/structured/src/)
 
-# Remove duplicates in STRUCTURED_COMPONENTS
 list(REMOVE_DUPLICATES STRUCTURED_COMPONENTS)
 
-# Create an object library for the structured .cpp and .cu files
-add_library(structured_objects STATIC ${STRUCTURED_BACKBONE_FILES} ${STRUCTURED_COMPONENTS})
-add_dependencies(structured_objects CopyUAMMD)
-
-# Add necessary definitions to structured_objects
-target_compile_definitions(structured_objects PRIVATE
-    UAMMD_EXTENSIONS
-    UAMMD_EXTENSIONS_PREAMBLE="${UAMMD_STRUCTURED_PATH}/extensions/structured/preamble.h"
-    MAXLOGLEVEL=5
-)
+set(COMPONENT_LIBRARIES "")
+foreach(SOURCE_FILE ${STRUCTURED_COMPONENTS} ${STRUCTURED_BACKBONE_FILES})
+  get_filename_component(FILE_NAME ${SOURCE_FILE} NAME_WE)
+  get_filename_component(DIR_PATH ${SOURCE_FILE} DIRECTORY)
+  file(RELATIVE_PATH REL_DIR_PATH "${UAMMD_STRUCTURED_PATH}/extensions/structured/src" ${DIR_PATH})
+  string(REPLACE "/" "_" REL_DIR_PATH ${REL_DIR_PATH})
+  set(LIB_NAME "${REL_DIR_PATH}_${FILE_NAME}")
+  add_library(${LIB_NAME} STATIC ${SOURCE_FILE})
+  list(APPEND COMPONENT_LIBRARIES ${LIB_NAME})
+  uammd_setup_target(${LIB_NAME})
+  target_compile_options(${LIB_NAME} PRIVATE
+    $<$<COMPILE_LANGUAGE:CUDA>:--expt-relaxed-constexpr --expt-extended-lambda -O3 -Xcompiler=-O3,-fPIC -w>
+  )
+  target_compile_definitions(${LIB_NAME} PRIVATE UAMMD_EXTENSIONS MAXLOGLEVEL=5)
+endforeach()
+add_library(structured_objects_i INTERFACE)
+target_link_libraries(structured_objects_i INTERFACE ${COMPONENT_LIBRARIES})
 
 if(UAMMD_PRECISION STREQUAL "DOUBLE")
     target_compile_definitions(structured_objects PRIVATE DOUBLE_PRECISION)
 endif()
 
-if(USE_MKL)
-    target_compile_definitions(structured_objects PRIVATE USE_MKL)
-endif()
-
-# Set include directories for structured_objects
-target_include_directories(structured_objects PRIVATE
-    ${UAMMD_STRUCTURED_PATH}/uammd/
-    ${UAMMD_STRUCTURED_PATH}/uammd/third_party/
-    ${UAMMD_STRUCTURED_PATH}/extensions/structured/include/
-    ${UAMMD_STRUCTURED_PATH}/extensions/structured/src/
-    ${CUDA_INCLUDE_DIRS}
-)
-
-# Set compile options for structured_objects
-target_compile_options(structured_objects PRIVATE
-    $<$<COMPILE_LANGUAGE:CUDA>:--expt-relaxed-constexpr --expt-extended-lambda -O3 -Xcompiler=-O3,-fPIC -w>
-)
-
-# Set properties for structured_objects
-set_target_properties(structured_objects PROPERTIES
-    POSITION_INDEPENDENT_CODE ON
-    CXX_STANDARD 17
-    CUDA_STANDARD 17
-)
-
 # Define the executable
 add_executable(UAMMDlauncher ${CMAKE_CURRENT_SOURCE_DIR}/main/UAMMDlauncher.cu)
-add_dependencies(UAMMDlauncher CopyUAMMD)
+uammd_setup_target(UAMMDlauncher)
 
 if(UAMMD_PRECISION STREQUAL "DOUBLE")
     target_compile_definitions(UAMMDlauncher PRIVATE DOUBLE_PRECISION)
 endif()
 
-if(USE_MKL)
-    target_compile_definitions(UAMMDlauncher PRIVATE USE_MKL)
-endif()
-
 # Set include directories for UAMMDlauncher
 target_include_directories(UAMMDlauncher PRIVATE
-    ${UAMMD_STRUCTURED_PATH}/uammd/
-    ${UAMMD_STRUCTURED_PATH}/uammd/third_party/
     ${UAMMD_STRUCTURED_PATH}/extensions/structured/include/
     ${UAMMD_STRUCTURED_PATH}/extensions/structured/src/
-    ${CUDA_INCLUDE_DIRS}
 )
 
 # Set compile options for UAMMDlauncher
@@ -444,27 +372,12 @@ target_compile_options(UAMMDlauncher PRIVATE
 )
 
 # Set definitions for UAMMDlauncher
-target_compile_definitions(UAMMDlauncher PRIVATE
-    UAMMD_EXTENSIONS
-    UAMMD_EXTENSIONS_PREAMBLE="${UAMMD_STRUCTURED_PATH}/extensions/structured/preamble.h"
-    MAXLOGLEVEL=5
-)
-
-# Set properties for UAMMDlauncher
-set_target_properties(UAMMDlauncher PROPERTIES
-    POSITION_INDEPENDENT_CODE ON
-    CXX_STANDARD 17
-    CUDA_STANDARD 17
-)
+target_compile_definitions(UAMMDlauncher PRIVATE  UAMMD_EXTENSIONS MAXLOGLEVEL=5)
 
 # Link libraries
 target_link_libraries(UAMMDlauncher PRIVATE
-                      structured_objects
-                      $<TARGET_OBJECTS:structured_objects>
-                      ${LIBRARIES})
+                      structured_objects_i)
 
-# Specify that the main build depends on the external project and generated files
-add_dependencies(UAMMDlauncher CopyUAMMD)
 foreach(SECTION ${SECTIONS})
     add_dependencies(UAMMDlauncher Generate${SECTION}Data)
 endforeach()
@@ -472,20 +385,15 @@ endforeach()
 if(BUILD_PYTHON_WRAPPER)
     # Add the Python module target
     pybind11_add_module(pyUAMMDlauncher ${CMAKE_CURRENT_SOURCE_DIR}/pyUAMMD/utils/launcher/UAMMDlauncher.cu)
-
+    uammd_setup_target(pyUAMMDlauncher)
     # Link libraries
     target_link_libraries(pyUAMMDlauncher PRIVATE
-                          structured_objects
-                          $<TARGET_OBJECTS:structured_objects>
-                          ${LIBRARIES})
+                          structured_objects_i)
 
     # Set include directories for pyUAMMDlauncher
     target_include_directories(pyUAMMDlauncher PRIVATE
-        ${UAMMD_STRUCTURED_PATH}/uammd/
-        ${UAMMD_STRUCTURED_PATH}/uammd/third_party/
         ${UAMMD_STRUCTURED_PATH}/extensions/structured/include/
         ${UAMMD_STRUCTURED_PATH}/extensions/structured/src/
-        ${CUDA_INCLUDE_DIRS}
     )
 
     # Set compile options for pyUAMMDlauncher
@@ -494,18 +402,10 @@ if(BUILD_PYTHON_WRAPPER)
     )
 
     # Set definitions for pyUAMMDlauncher
-    target_compile_definitions(pyUAMMDlauncher PRIVATE
-        UAMMD_EXTENSIONS
-        UAMMD_EXTENSIONS_PREAMBLE="${UAMMD_STRUCTURED_PATH}/extensions/structured/preamble.h"
-        MAXLOGLEVEL=5
-    )
+    target_compile_definitions(pyUAMMDlauncher PRIVATE MAXLOGLEVEL=5)
 
     if(UAMMD_PRECISION STREQUAL "DOUBLE")
         target_compile_definitions(pyUAMMDlauncher PRIVATE DOUBLE_PRECISION)
-    endif()
-
-    if(USE_MKL)
-        target_compile_definitions(pyUAMMDlauncher PRIVATE USE_MKL)
     endif()
 
     # Set properties for pyUAMMDlauncher
@@ -515,8 +415,6 @@ if(BUILD_PYTHON_WRAPPER)
         CUDA_STANDARD 17
     )
 
-    # Add dependencies
-    add_dependencies(pyUAMMDlauncher CopyUAMMD)
     foreach(SECTION ${SECTIONS})
         add_dependencies(pyUAMMDlauncher Generate${SECTION}Data)
     endforeach()
@@ -541,11 +439,10 @@ if(BUILD_DEB_PACKAGE)
     install(TARGETS UAMMDlauncher
             RUNTIME DESTINATION bin)
 endif()
-
 if(NOT BUILD_DEB_PACKAGE)
 
     install(TARGETS UAMMDlauncher
-            RUNTIME DESTINATION ${INSTALL_DIR})
+            RUNTIME DESTINATION ${CMAKE_INSTALL_PREFIX}/bin)
 
     if(INSTALL_PYTHON_PACKAGE)
         add_custom_target(
@@ -570,4 +467,3 @@ if(NOT BUILD_DEB_PACKAGE)
         endif()
     endif()
 endif()
-
