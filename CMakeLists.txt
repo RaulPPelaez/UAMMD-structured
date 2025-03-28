@@ -227,7 +227,6 @@ add_custom_target(
 ################################################################
 set(UAMMD_STRUCTURED_SRC_PATH "${UAMMD_STRUCTURED_PATH}/extensions/structured/src")
 # Add backbone files to STRUCTURED_BACKBONE_FILES
-# USe glob to find any .cu or .cpp file in the hierarchy
 #file(GLOB_RECURSE STRUCTURED_BACKBONE_FILES ${UAMMD_STRUCTURED_SRC_PATH} "*.cu")
 
 list(APPEND STRUCTURED_BACKBONE_FILES "${UAMMD_STRUCTURED_SRC_PATH}/Input/Input.cu")
@@ -345,11 +344,12 @@ foreach(SOURCE_FILE ${STRUCTURED_COMPONENTS} ${STRUCTURED_BACKBONE_FILES})
   )
   target_compile_definitions(${LIB_NAME} PRIVATE UAMMD_EXTENSIONS MAXLOGLEVEL=5)
 endforeach()
+
 add_library(structured_objects_i INTERFACE)
 target_link_libraries(structured_objects_i INTERFACE ${COMPONENT_LIBRARIES})
 
 if(UAMMD_PRECISION STREQUAL "DOUBLE")
-    target_compile_definitions(structured_objects PRIVATE DOUBLE_PRECISION)
+    target_compile_definitions(structured_objects_i PRIVATE DOUBLE_PRECISION)
 endif()
 
 # Define the executable
@@ -360,23 +360,19 @@ if(UAMMD_PRECISION STREQUAL "DOUBLE")
     target_compile_definitions(UAMMDlauncher PRIVATE DOUBLE_PRECISION)
 endif()
 
-# Set include directories for UAMMDlauncher
 target_include_directories(UAMMDlauncher PRIVATE
     ${UAMMD_STRUCTURED_PATH}/extensions/structured/include/
     ${UAMMD_STRUCTURED_PATH}/extensions/structured/src/
 )
 
-# Set compile options for UAMMDlauncher
 target_compile_options(UAMMDlauncher PRIVATE
     $<$<COMPILE_LANGUAGE:CUDA>:--expt-relaxed-constexpr --expt-extended-lambda -O3 -Xcompiler=-O3,-fPIC -w>
 )
 
-# Set definitions for UAMMDlauncher
 target_compile_definitions(UAMMDlauncher PRIVATE  UAMMD_EXTENSIONS MAXLOGLEVEL=5)
 
 # Link libraries
-target_link_libraries(UAMMDlauncher PRIVATE
-                      structured_objects_i)
+target_link_libraries(UAMMDlauncher PUBLIC structured_objects_i)
 
 foreach(SECTION ${SECTIONS})
     add_dependencies(UAMMDlauncher Generate${SECTION}Data)
