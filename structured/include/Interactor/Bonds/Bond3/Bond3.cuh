@@ -4,7 +4,7 @@ namespace uammd{
 namespace structured{
 namespace Potentials{
 namespace Bond3{
-static constexpr sin_min = real(1e-12);
+static constexpr real sin_min = real(1e-12);
 template <class BondType_>
 struct EnergyTransverser_{
 
