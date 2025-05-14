@@ -4,7 +4,7 @@ namespace uammd{
 namespace structured{
 namespace Potentials{
 namespace Bond3{
-
+static constexpr sin_min = real(1e-12);
 template <class BondType_>
 struct EnergyTransverser_{
 
@@ -214,7 +214,7 @@ struct AngularForceTransverser_{
         real sijk = sin(ang);
         //Sin must be bigger than 0
         //sijk = max(std::numeric_limits<real>::min(),sijk);
-        sijk = max(real(1e-6),sijk);
+        sijk = max(sin_min,sijk);
         fmod=fmod/sijk;
 
         const real crji = cijk*inv_rji2;
@@ -336,7 +336,7 @@ struct AngularHessianTransverser_{
       real sijk = sin(ang);
       //Sin must be bigger than 0
       //sijk = max(std::numeric_limits<real>::min(),sijk);
-      sijk = max(real(1e-6),sijk);
+      sijk = max(sin_min,sijk);
 
       const real crji = cijk*invrji2;
       const real crjk = cijk*invrjk2;
@@ -461,7 +461,7 @@ struct AngularHessianTransverser_{
       real sijk = sin(ang);
       //Sin must be bigger than 0
       //sijk = max(std::numeric_limits<real>::min(),sijk);
-      sijk = max(real(1e-6),sijk);
+      sijk = max(sin_min,sijk);
       real invsijk = real(1.0)/sijk;
 
       real dtheta_drji = -(invrjk-cijk*invrji)*invrji*invsijk;
