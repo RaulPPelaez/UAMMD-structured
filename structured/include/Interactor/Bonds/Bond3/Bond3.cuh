@@ -352,11 +352,11 @@ struct AngularHessianTransverser_{
       }
 
       real3 grad1 = (id1 == p_i) ?  grad_i :
-	            (id1 == p_j) ? -grad_i - grad_k :
+	            (id1 == p_j) ? (-grad_i - grad_k) :
 		    grad_k;
 
       real3 grad2 = (id2 == p_i) ?  grad_i :
-	            (id2 == p_j) ? -grad_i - grad_k :
+	            (id2 == p_j) ? (-grad_i - grad_k) :
                       		    grad_k;
 
       tensor3 grad_2_outer_grad_1 = computeGradientAngle2AngularPotential(rji, rjk, rki,
