@@ -344,32 +344,58 @@ struct AngularHessianTransverser_{
       real3 grad_i = -(rjk*inv_rjirjk-rji*crji)/sijk;
       real3 grad_k = -(rji*inv_rjirjk-rjk*crjk)/sijk;
 
-      bool id2_smaller = id2 < id1;
-      if (id2_smaller) {
-	int temp = id1;
-	id1 = id2;
-	id2 = temp;
-      }
+      // bool id2_smaller = id2 < id1;
+      // if (id2_smaller) {
+      // 	int temp = id1;
+      // 	id1 = id2;
+      // 	id2 = temp;
+      // }
 
-      real3 grad1 = (id1 == p_i) ?  grad_i :
-	            (id1 == p_j) ? -grad_i - grad_k :
-		    grad_k;
+      // real3 grad1 = (id1 == p_i) ?  grad_i :
+      // 	            (id1 == p_j) ? -grad_i - grad_k :
+      // 		    grad_k;
 
-      real3 grad2 = (id2 == p_i) ?  grad_i :
-	            (id2 == p_j) ? -grad_i - grad_k :
-                      		    grad_k;
+      // real3 grad2 = (id2 == p_i) ?  grad_i :
+      // 	            (id2 == p_j) ? -grad_i - grad_k :
+      //                 		    grad_k;
 
-      tensor3 grad_2_outer_grad_1 = computeGradientAngle2AngularPotential(rji, rjk, rki,
-									  invrji, invrjk, invrki,
-									  invrji2, invrjk2, invrki2,
-									  grad1, grad2,
-									  sijk, cijk, id1, id2);
+      // tensor3 grad_2_outer_grad_1 = computeGradientAngle2AngularPotential(rji, rjk, rki,
+      // 									  invrji, invrjk, invrki,
+      // 									  invrji2, invrjk2, invrki2,
+      // 									  grad1, grad2,
+      // 									  sijk, cijk, id1, id2);
 
-      real dudtheta   = BondType::energyDerivate(ang,computational,bondParam);
-      real du2dtheta2 = BondType::energySecondDerivate(ang,computational,bondParam);
+      // real dudtheta   = BondType::energyDerivate(ang,computational,bondParam);
+      // real du2dtheta2 = BondType::energySecondDerivate(ang,computational,bondParam);
 
-      H = du2dtheta2*outer(grad2, grad1)+dudtheta*grad_2_outer_grad_1;
-      if (id2_smaller) H = H.transpose();
+      // H = du2dtheta2*outer(grad2, grad1)+dudtheta*grad_2_outer_grad_1;
+      // if (id2_smaller) H = H.transpose();
+          // build per-particle gradients in the original (id1,id2) order
+	  real3 grad1 = (id1 == p_i) ?  grad_i
+			: (id1 == p_j) ? -grad_i - grad_k
+			  :                grad_k;
+
+	  real3 grad2 = (id2 == p_i) ?  grad_i
+			: (id2 == p_j) ? -grad_i - grad_k
+			  :                grad_k;
+
+	  tensor3 grad_2_outer_grad_1 = computeGradientAngle2AngularPotential(
+									      rji, rjk, rki,
+									      invrji, invrjk, invrki,
+									      invrji2, invrjk2, invrki2,
+									      grad1, grad2,
+									      sijk, cijk,
+									      id1, id2
+									      );
+
+	  real dudtheta   = BondType::energyDerivate(ang, computational, bondParam);
+	  real du2dtheta2 = BondType::energySecondDerivate(ang, computational, bondParam);
+
+	  // assemble the Hessian block, then transpose only if id2<id1
+	  H = du2dtheta2*outer(grad2, grad1) + dudtheta*grad_2_outer_grad_1;
+	  if (id2 < id1) {
+            H = H.transpose();
+	  }
       return H;
     }
 
