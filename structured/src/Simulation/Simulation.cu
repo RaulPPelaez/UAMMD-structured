@@ -1,4 +1,6 @@
 #include "Simulation/Simulation.cuh"
+#include <dlfcn.h>
+#include <iostream>
 
 namespace uammd{
 namespace structured{
@@ -215,7 +217,15 @@ void startSelfStartingSimulation(const inTyp& in){
     pid = fork();
 
     if (pid >= 0) {
-        if (pid == 0) {
+      if (pid == 0) {
+std::cerr << "About to dlopen..." << std::endl;
+void* handle = dlopen("./libunits_none2.so", RTLD_NOW);
+std::cerr << "dlopen returned: " << handle << std::endl;
+if (!handle) {
+  std::cerr << "dlerror: " << dlerror() << std::endl;
+  throw std::runtime_error("Failed to load library");
+}
+
             // Child process
             int exitCode = 2; // Default exit code is 2 (simulation failed)
             {
