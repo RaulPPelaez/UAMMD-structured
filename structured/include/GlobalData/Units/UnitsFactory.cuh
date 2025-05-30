@@ -7,6 +7,8 @@
 #include <utility>
 
 #include "Definitions/Hashes.cuh"
+#include "GlobalData/Units/UnitsHandler.cuh"
+#include "GlobalData/Units/UnitsFactory.cuh"
 
 namespace uammd {
 namespace structured {
