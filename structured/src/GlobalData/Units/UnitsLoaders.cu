@@ -19,7 +19,11 @@ namespace UnitsLoader{
     std::shared_ptr<typename Units::UnitsHandler>
     loadUnits(std::shared_ptr<ExtendedSystem> sys,
               std::vector<std::string>       path){
-
+      std::cerr<<"Loading path: ";
+      for(const auto& p : path) {
+	std::cerr << p << " ";
+      }
+      std::cerr << std::endl;
         DataEntry data = sys->getInput()->getDataEntry(path);
 
         std::string typesType    = data.getType();
