@@ -13,6 +13,7 @@ option(INSTALL_PYTHON_PACKAGE "Install Python package during make install" OFF)
 option(BUILD_PYTHON_WRAPPER "Build Python wrapper for UAMMDlauncher" OFF)
 option(BUILD_LIBRARY "Build UAMMDlauncher and libuammd_structured" ON)
 option(BUILD_DEB_PACKAGE "Build .deb package" OFF)
+option(INSTALL_HEADERS "Install headers during make install" OFF)
 
 if(BUILD_PYTHON_WRAPPER AND NOT INSTALL_PYTHON_PACKAGE)
   message(FATAL_ERROR "BUILD_PYTHON_WRAPPER is ON but INSTALL_PYTHON_PACKAGE is OFF. "
@@ -319,6 +320,12 @@ if(NOT BUILD_DEB_PACKAGE)
     install(TARGETS UAMMDlauncher RUNTIME DESTINATION ${INSTALL_DIR}/bin)
     install(TARGETS uammd_structured LIBRARY DESTINATION ${INSTALL_DIR}/lib)
     install(TARGETS UAMMDlauncher_wrapper LIBRARY DESTINATION ${INSTALL_DIR}/lib)
+  endif()
+  if(INSTALL_HEADERS)
+    install(DIRECTORY ${UAMMD_STRUCTURED_INCLUDE_PATH}/
+      DESTINATION ${INSTALL_DIR}/include/uammd_structured
+      FILES_MATCHING PATTERN "*.h" PATTERN "*.cuh"
+    )
   endif()
   if(INSTALL_PYTHON_PACKAGE)
     add_custom_target(
